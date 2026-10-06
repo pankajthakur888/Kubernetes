@@ -177,7 +177,27 @@ kubectl uncordon <node-name>
 
 ---
 
-## 5. Automated Verification Test Suites
+
+## 5. CKA Preparation Roadmap
+
+| Phase | Topics | Priority |
+| :---: | :--- | :--- |
+| 1 | Kubernetes Architecture & Core Concepts | ????? |
+| 2 | Pods, Deployments, ReplicaSets | ????? |
+| 3 | Services & Networking | ????? |
+| 4 | ConfigMaps & Secrets | ???? |
+| 5 | Storage, PV, PVC, StorageClass | ????? |
+| 6 | Scheduling, Taints, Tolerations, Affinity | ????? |
+| 7 | RBAC & Security | ????? |
+| 8 | Ingress & Gateway concepts | ???? |
+| 9 | Helm & Application Management | ??? |
+| 10 | Troubleshooting | ????? |
+| 11 | Cluster Maintenance & Upgrades | ????? |
+| 12 | ETCD backup/restore | ????? |
+| 13 | Advanced kubectl | ????? |
+| 14 | Full CKA Mock Exams | ????? |
+
+## 6. Automated Verification Test Suites
 
 Both suites include comprehensive automated testing with mock execution, syntax validation, and flag assembly checks:
 
