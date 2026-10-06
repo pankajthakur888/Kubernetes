@@ -31,7 +31,7 @@ ${BOLD}Commands:${NC}
   prereqs            Run host preparation and prerequisite package installations
   token              Display cluster join token, external IP, and copy-paste commands
   health-check       Run deep diagnostic check on nodes, pods, etcd, and DNS
-  cni [calico|cilium] Install Calico or Cilium CNI
+  cni [cilium|calico] Install Cilium (default) or Calico CNI
   metallb [pool]     Install and configure MetalLB with an IP range
   ingress [nginx]    Install Ingress-NGINX or configure Traefik
   lb <cp1> <cp2> <cp3> Setup HAProxy load balancer across control plane nodes

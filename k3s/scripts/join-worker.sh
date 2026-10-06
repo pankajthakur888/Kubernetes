@@ -19,6 +19,14 @@ load_config "${ROLE}"
 # Run host preparation
 "${SCRIPT_DIR}/install.sh"
 
+# Pre-flight check: ensure conflicting server service is stopped
+if systemctl is-active --quiet k3s 2>/dev/null; then
+    log_warn "Conflicting 'k3s' (server) service is currently running."
+    log_info "Stopping and disabling 'k3s' to prevent supervisor port (6444) conflict..."
+    systemctl stop k3s 2>/dev/null || true
+    systemctl disable k3s 2>/dev/null || true
+fi
+
 [[ -n "${K3S_URL:-}" ]] || log_error "K3S_URL is required for worker node."
 [[ -n "${K3S_TOKEN:-}" ]] || log_error "K3S_TOKEN is required for worker node."
 

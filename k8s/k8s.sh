@@ -38,7 +38,7 @@ ${BOLD}Commands:${NC}
   packages            Configure official pkgs.k8s.io repository and install kubelet/kubeadm/kubectl
   token               Display cluster join commands and upload certs key
   health-check        Run diagnostic check on nodes, static pods, and CoreDNS
-  cni [calico|cilium] Install Calico or Cilium CNI
+  cni [cilium|calico] Install Cilium (default) or Calico CNI
   csi                 Install CSI storage driver (Local-Path onprem / Cloud CSI)
   metallb [pool]      Install MetalLB bare-metal LoadBalancer
   lb <cp1> <cp2> <cp3> Setup HAProxy load balancer across control plane nodes
@@ -49,7 +49,7 @@ ${BOLD}Backward-Compatible Environment Variable Syntax:${NC}
        ENVIRONMENT=onprem \\
        CONTROL_PLANE_ENDPOINT=k8s-api.example.com \\
        NODE_IP=10.10.10.11 \\
-       CNI=calico \\
+       CNI=cilium \\
        ./k8s.sh
 
   sudo ROLE=control-plane-join \\

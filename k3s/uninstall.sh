@@ -41,6 +41,11 @@ done
 
 # 4. Remove leftover data directories
 log_info "Cleaning data directories..."
+for mount_pt in /var/lib/kubelet /var/lib/rancher/k3s; do
+    if grep -q " ${mount_pt}" /proc/mounts 2>/dev/null; then
+        umount -l "${mount_pt}" 2>/dev/null || true
+    fi
+done
 rm -rf /etc/rancher/k3s \
        /var/lib/rancher/k3s \
        /var/lib/kubelet \
@@ -49,7 +54,7 @@ rm -rf /etc/rancher/k3s \
        /var/lib/cni \
        /etc/cni/net.d \
        /etc/modules-load.d/k3s.conf \
-       /etc/sysctl.d/90-k3s.conf
+       /etc/sysctl.d/90-k3s.conf || true
 
 # 5. Flush iptables if requested
 if [[ "${1:-}" == "--purge-iptables" ]]; then

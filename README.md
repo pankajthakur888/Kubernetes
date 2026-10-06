@@ -80,10 +80,10 @@ kubernetes/
 | **Container Runtime** | Dedicated `containerd` (`SystemdCgroup = true`) | Bundled `containerd` |
 | **Control Plane** | Individual static pods (`/etc/kubernetes/manifests`) | Consolidated server process |
 | **etcd Cluster** | Dedicated static pods + `etcdctl` | Embedded SQLite (single) or etcd (HA) |
-| **Networking (CNI)** | Calico or Cilium | Flannel default (or Calico/Cilium) |
+| **Networking (CNI)** | Cilium default (or Calico) | Cilium default (or Flannel/Calico) |
 | **Storage (CSI)** | Local-Path / Cloud CSI (AWS EBS, GCE PD, Azure Disk) | Local-Path provisioner built-in |
 | **Best Used For** | Enterprise production, **CKA Exam preparation** | Edge, IoT, local lab, WSL2, rapid CI/CD |
-| **Test Suite** | 31 Automated Tests Passed | 34 Automated Tests Passed |
+| **Test Suite** | 31 Automated Tests Passed | 38 Automated Tests Passed |
 
 ---
 
@@ -98,7 +98,7 @@ cd /opt/myproject/kubernetes/k8s
 sudo ./k8s.sh lb 10.10.10.11 10.10.10.12 10.10.10.13
 
 # 2. On Control Plane 1 (Bootstrap cluster):
-sudo ROLE=control-plane      ENVIRONMENT=onprem      CONTROL_PLANE_ENDPOINT=k8s-api.lab.local      NODE_IP=10.10.10.11      CNI=calico      ./k8s.sh
+sudo ROLE=control-plane      ENVIRONMENT=onprem      CONTROL_PLANE_ENDPOINT=k8s-api.lab.local      NODE_IP=10.10.10.11      CNI=cilium      ./k8s.sh
 
 # 3. Retrieve join tokens & certificate key:
 sudo ./k8s.sh token

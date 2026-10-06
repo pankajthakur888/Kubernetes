@@ -172,7 +172,7 @@ DEFAULT_CFG=$(bash -c '
 ')
 eval "${DEFAULT_CFG}"
 
-if [[ "${CNI}" == "flannel" && "${CIDR}" == "10.42.0.0/16" && "${VER}" == "stable" ]]; then
+if [[ "${CNI}" == "cilium" && "${CIDR}" == "10.42.0.0/16" && "${VER}" == "stable" ]]; then
     pass "Default configuration values loaded accurately from cluster.env"
 else
     fail "Default configuration" "CNI=${CNI}, CIDR=${CIDR}, VER=${VER}"
@@ -180,7 +180,7 @@ fi
 
 # Test runtime env variable override
 OVERRIDE_CFG=$(bash -c '
-    export CNI_PLUGIN="calico"
+    export CNI_PLUGIN="flannel"
     export CLUSTER_CIDR="192.168.0.0/16"
     export K3S_VERSION="v1.31.5+k3s1"
     source "'"${SCRIPTS_DIR}"'/common.sh"
@@ -191,7 +191,7 @@ OVERRIDE_CFG=$(bash -c '
 ')
 eval "${OVERRIDE_CFG}"
 
-if [[ "${CNI}" == "calico" && "${CIDR}" == "192.168.0.0/16" && "${VER}" == "v1.31.5+k3s1" ]]; then
+if [[ "${CNI}" == "flannel" && "${CIDR}" == "192.168.0.0/16" && "${VER}" == "v1.31.5+k3s1" ]]; then
     pass "Environment variables take precedence over config/cluster.env"
 else
     fail "Environment override" "CNI=${CNI}, CIDR=${CIDR}, VER=${VER}"
@@ -293,7 +293,7 @@ TEST_SERVER_INIT=$(PATH="${MOCK_DIR}:${PATH}" bash -c '
     # Override join-server.sh execution
     DISABLE_TRAEFIK=true
     DISABLE_SERVICELB=true
-    CNI_PLUGIN=calico
+    CNI_PLUGIN=cilium
     ROLE=server-init
     source "'"${SCRIPTS_DIR}"'/common.sh"
     load_config "${ROLE}"
@@ -419,6 +419,43 @@ if [[ "${ROLE_WORKER_DISPATCH}" == "ACTION=worker" ]]; then
     pass "ROLE=worker resolves correctly without positional arguments"
 else
     fail "ROLE=worker resolution"
+fi
+
+# ==============================================================================
+# 10. Pre-flight & Node IP Validation
+# ==============================================================================
+section "10. Pre-flight & Node IP Validation"
+
+# Test detect_node_ip warns when non-existent IP is provided
+UNASSIGNED_IP_TEST=$(bash -c '
+    source "'"${SCRIPTS_DIR}"'/common.sh"
+    NODE_IP="192.0.2.254" detect_node_ip 2>&1
+')
+if [[ "${UNASSIGNED_IP_TEST}" =~ "was not found on any active network interface" ]]; then
+    pass "detect_node_ip warns when configured NODE_IP is not bound to local host"
+else
+    fail "detect_node_ip warning check" "Output: ${UNASSIGNED_IP_TEST}"
+fi
+
+# Test join-server.sh contains pre-flight cleanup for k3s-agent
+if grep -q "Stopping and disabling 'k3s-agent'" "${SCRIPTS_DIR}/join-server.sh"; then
+    pass "join-server.sh includes pre-flight conflict protection against active k3s-agent"
+else
+    fail "join-server.sh pre-flight check missing"
+fi
+
+# Test join-worker.sh contains pre-flight cleanup for k3s
+if grep -q "Stopping and disabling 'k3s'" "${SCRIPTS_DIR}/join-worker.sh"; then
+    pass "join-worker.sh includes pre-flight conflict protection against active k3s server"
+else
+    fail "join-worker.sh pre-flight check missing"
+fi
+
+# Test uninstall.sh handles mounted /var/lib/kubelet
+if grep -q 'umount -l "${mount_pt}"' "${PROJECT_DIR}/uninstall.sh"; then
+    pass "uninstall.sh unmounts active filesystem mount points cleanly before deletion"
+else
+    fail "uninstall.sh mount cleanup check missing"
 fi
 
 # ==============================================================================

@@ -104,6 +104,8 @@ Assuming nodes:
 ```bash
 sudo ROLE=server-init NODE_IP=10.10.10.10 ./k3s.sh
 ```
+
+> **Note on `NODE_IP`**: `10.10.10.10` in this walkthrough is an illustrative IP for CP1. In single-node labs or local WSL2 environments, omit `NODE_IP` (e.g., `sudo ROLE=server-init ./k3s.sh` or `sudo ./k3s.sh server-init`) to let the script auto-detect your active interface IP, or substitute your machine's real IP. Specifying an IP that is not bound to a local network interface will cause CNI networking to fail.
 Retrieve the cluster join token:
 ```bash
 sudo ./k3s.sh token
@@ -149,14 +151,24 @@ sudo ./k3s.sh health-check
 
 ## 4. Advanced Add-Ons
 
-### Calico CNI (for NetworkPolicy practice)
-Set in `config/cluster.env`:
+### Cilium CNI (Default eBPF Networking)
+Cilium is configured as the default CNI plugin (`CNI_PLUGIN="cilium"` in `config/cluster.env`). When initializing the cluster (`server-init`), Flannel is disabled and Cilium is deployed automatically.
+
+To deploy or reinstall Cilium manually:
 ```bash
-CNI_PLUGIN="calico"
+sudo ./k3s.sh cni cilium
 ```
-Or deploy after initial server install:
+
+### Alternative CNIs: Calico or Flannel
+To use Calico for NetworkPolicy practice, or the embedded Flannel CNI, set in `config/cluster.env` or pass as a runtime variable:
 ```bash
+# To use Calico:
+sudo ROLE=server-init CNI_PLUGIN=calico ./k3s.sh
+# or after server install:
 sudo ./k3s.sh cni calico
+
+# To use embedded Flannel:
+sudo ROLE=server-init CNI_PLUGIN=flannel ./k3s.sh
 ```
 
 ### MetalLB (Bare-metal LoadBalancer IP Provider)
@@ -201,6 +213,57 @@ kubectl uncordon worker1
 
 ### Lab 3: Cluster Upgrade Simulation
 Edit `config/cluster.env` and set `K3S_VERSION="v1.31.5+k3s1"`, then re-run `./k3s.sh server-init` or `./k3s.sh worker` sequentially across nodes.
+
+
+### Lab 4: Troubleshooting a `NotReady` Worker Node (Real Prod Issue)
+**Scenario**: A worker node shows as `NotReady` in `kubectl get nodes`. Workloads on it are failing. In production, this can be caused by service crashes, certificate expiration, or misconfigurations.
+**Resolution**:
+```bash
+# 1. Check the node status
+kubectl describe node worker1
+# Look at conditions like 'Ready', 'MemoryPressure', 'DiskPressure'
+
+# 2. SSH into the failing worker node
+ssh worker1
+
+# 3. Check the k3s-agent service logs (since K3s embeds the kubelet in the agent)
+sudo journalctl -u k3s-agent -f
+# Look for errors like "failed to connect to apiserver" or "invalid token"
+
+# 4. Fix the misconfiguration
+# E.g., if the token is wrong in the service file or environment variables
+sudo vi /etc/systemd/system/k3s-agent.service.env
+# Update K3S_TOKEN to the correct value
+
+# 5. Restart the agent service
+sudo systemctl daemon-reload
+sudo systemctl restart k3s-agent
+
+# 6. Verify the node returns to 'Ready'
+kubectl get nodes
+```
+
+### Lab 5: Troubleshooting Network Policies with Cilium
+**Scenario**: A frontend pod is timing out when connecting to a backend service in the `prod` namespace due to default-deny NetworkPolicies.
+**Resolution**:
+```bash
+# 1. Test connectivity
+kubectl exec -it frontend -n prod -- curl -v http://backend-svc:80
+# Result: Connection Timed Out
+
+# 2. Inspect NetworkPolicies in the namespace
+kubectl get networkpolicies -n prod
+kubectl describe networkpolicy <policy-name> -n prod
+
+# 3. Notice the policy only allows ingress from pods with the label 'tier: frontend'.
+# But the frontend pod only has 'tier: web'.
+
+# 4. Update the pod label to match the policy requirement
+kubectl label pod frontend -n prod tier=frontend --overwrite
+
+# 5. Verify connectivity is restored
+kubectl exec -it frontend -n prod -- curl -v http://backend-svc:80
+```
 
 ---
 

@@ -94,16 +94,22 @@ detect_wsl() {
 
 # Detect primary node IPv4
 detect_node_ip() {
-    NODE_IP="${NODE_IP:-}"
+    local detected_ip=""
+    detected_ip=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1); exit}')
+    if [[ -z "${detected_ip}" ]]; then
+        detected_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+    fi
 
-    if [[ -z "${NODE_IP}" ]]; then
-        # Query default route source IP
-        NODE_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1); exit}')
-        
-        # Fallback to first non-loopback IP
-        if [[ -z "${NODE_IP}" ]]; then
-            NODE_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+    if [[ -n "${NODE_IP:-}" ]]; then
+        # Check if the user-specified NODE_IP exists on a local interface
+        if ! ip -o addr show 2>/dev/null | grep -qw "${NODE_IP}"; then
+            log_warn "Configured NODE_IP '${NODE_IP}' was not found on any active network interface of this host!"
+            log_warn "Active host interfaces detected:"
+            ip -o -4 addr show 2>/dev/null | awk '{print "    - " $2 ": " $4}' || true
+            log_warn "K3s CNI networking requires NODE_IP to match a local host interface. If this IP was copied from documentation examples, consider running without NODE_IP (which auto-detects: ${detected_ip})."
         fi
+    else
+        NODE_IP="${detected_ip}"
     fi
 
     [[ -n "${NODE_IP}" ]] || log_error "Unable to auto-detect node IP. Please export NODE_IP manually."

@@ -146,7 +146,7 @@ DEFAULT_CFG=$(bash -c '
 ')
 eval "${DEFAULT_CFG}"
 
-if [[ "${ENV}" == "onprem" && "${CNI}" == "calico" && "${POD_CIDR}" == "10.244.0.0/16" ]]; then
+if [[ "${ENV}" == "onprem" && "${CNI}" == "cilium" && "${POD_CIDR}" == "10.244.0.0/16" ]]; then
     pass "Default configuration loaded accurately from cluster.env"
 else
     fail "Default configuration" "ENV=${ENV}, CNI=${CNI}, POD_CIDR=${POD_CIDR}"
@@ -154,7 +154,7 @@ fi
 
 OVERRIDE_CFG=$(bash -c '
     export ENVIRONMENT="aws"
-    export CNI="cilium"
+    export CNI="calico"
     export POD_CIDR="172.16.0.0/16"
     source "'"${SCRIPTS_DIR}"'/common.sh"
     load_config "control-plane"
@@ -164,7 +164,7 @@ OVERRIDE_CFG=$(bash -c '
 ')
 eval "${OVERRIDE_CFG}"
 
-if [[ "${ENV}" == "aws" && "${CNI}" == "cilium" && "${POD_CIDR}" == "172.16.0.0/16" ]]; then
+if [[ "${ENV}" == "aws" && "${CNI}" == "calico" && "${POD_CIDR}" == "172.16.0.0/16" ]]; then
     pass "Environment variables override cluster.env settings"
 else
     fail "Environment override" "ENV=${ENV}, CNI=${CNI}, POD_CIDR=${POD_CIDR}"

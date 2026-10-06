@@ -20,6 +20,14 @@ load_config "${ROLE}"
 # Run host preparation
 "${SCRIPT_DIR}/install.sh"
 
+# Pre-flight check: ensure conflicting worker service is stopped
+if systemctl is-active --quiet k3s-agent 2>/dev/null; then
+    log_warn "Conflicting 'k3s-agent' service is currently running."
+    log_info "Stopping and disabling 'k3s-agent' to prevent supervisor port (6444) conflict..."
+    systemctl stop k3s-agent 2>/dev/null || true
+    systemctl disable k3s-agent 2>/dev/null || true
+fi
+
 log_header "Installing K3s Control-Plane (Role: ${ROLE})"
 
 INSTALL_ARGS="server"
@@ -35,9 +43,9 @@ SAN_FLAGS=$(format_san_flags "${NODE_IP},127.0.0.1,localhost,${API_LB_ENDPOINT:-
 INSTALL_ARGS+="${SAN_FLAGS}"
 
 # CNI configuration
-case "${CNI_PLUGIN:-flannel}" in
+case "${CNI_PLUGIN:-cilium}" in
     flannel)
-        log_info "Using default embedded Flannel CNI"
+        log_info "Using embedded Flannel CNI"
         ;;
     calico|cilium|none)
         log_warn "Disabling embedded Flannel & network policy to support ${CNI_PLUGIN} CNI"
@@ -112,7 +120,17 @@ else
     log_success "Control plane node is active and ready!"
 fi
 
-# Set up user environment shortcuts if desired
+# Set up user environment shortcuts and kubeconfig
+mkdir -p "${HOME}/.kube" /root/.kube
+cp -f /etc/rancher/k3s/k3s.yaml "${HOME}/.kube/config" 2>/dev/null || true
+cp -f /etc/rancher/k3s/k3s.yaml /root/.kube/config 2>/dev/null || true
+if [[ -n "${SUDO_USER:-}" ]]; then
+    USER_HOME=$(getent passwd "${SUDO_USER}" | cut -d: -f6)
+    mkdir -p "${USER_HOME}/.kube"
+    cp -f /etc/rancher/k3s/k3s.yaml "${USER_HOME}/.kube/config" 2>/dev/null || true
+    chown -R "${SUDO_USER}:${SUDO_USER}" "${USER_HOME}/.kube" 2>/dev/null || true
+fi
+
 if ! grep -q "alias k='k3s kubectl'" /etc/bash.bashrc 2>/dev/null; then
     echo "alias k='k3s kubectl'" >> /etc/bash.bashrc || true
     echo "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" >> /etc/bash.bashrc || true
@@ -120,3 +138,8 @@ fi
 
 # Print cluster connection tokens
 "${SCRIPT_DIR}/token.sh"
+
+# Install CNI plugin if specified and not embedded flannel / none
+if [[ "${MODE}" == "init" && -n "${CNI_PLUGIN:-}" && "${CNI_PLUGIN}" != "flannel" && "${CNI_PLUGIN}" != "none" ]]; then
+    "${SCRIPT_DIR}/install-cni.sh" "${CNI_PLUGIN}"
+fi

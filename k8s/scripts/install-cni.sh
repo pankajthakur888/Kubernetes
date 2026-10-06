@@ -11,7 +11,7 @@ source "${SCRIPT_DIR}/common.sh"
 check_root
 load_config
 
-CNI_TARGET="${1:-${CNI:-calico}}"
+CNI_TARGET="${1:-${CNI:-cilium}}"
 export KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/admin.conf}"
 
 log_header "Installing CNI Plugin: ${CNI_TARGET}"
@@ -52,7 +52,8 @@ EOF
         log_info "Installing Cilium CNI..."
         if ! command -v cilium >/dev/null 2>&1; then
             log_info "Downloading Cilium CLI..."
-            CILIUM_CLI_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/cilium-cli/main/stable.txt)
+            CILIUM_CLI_VERSION=$(curl -s --connect-timeout 10 https://raw.githubusercontent.com/cilium/cilium-cli/main/stable.txt 2>/dev/null || echo "v0.20.1")
+            [[ -n "${CILIUM_CLI_VERSION}" ]] || CILIUM_CLI_VERSION="v0.20.1"
             CLI_ARCH="amd64"
             if [ "$(uname -m)" = "aarch64" ]; then CLI_ARCH="arm64"; fi
             curl -L --fail --remote-name-all "https://github.com/cilium/cilium-cli/releases/download/${CILIUM_CLI_VERSION}/cilium-linux-${CLI_ARCH}.tar.gz"

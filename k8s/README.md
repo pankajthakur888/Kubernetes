@@ -34,7 +34,7 @@ A reusable, production-ready Kubernetes installation and operations suite suppor
      └─────────────┘        └─────────────┘        └─────────────┘
 
         Container Runtime: containerd (SystemdCgroup = true)
-        Networking (CNI): Calico / Cilium
+        Networking (CNI): Cilium (default) / Calico
         Storage (CSI): Local-Path (On-Prem) / EBS / GCE-PD / AzureDisk
 ```
 
@@ -93,7 +93,7 @@ sudo ROLE=control-plane \
      ENVIRONMENT=onprem \
      CONTROL_PLANE_ENDPOINT=k8s-api.lab.local \
      NODE_IP=10.10.10.11 \
-     CNI=calico \
+     CNI=cilium \
      ./k8s.sh
 ```
 
@@ -180,4 +180,63 @@ sudo kubeadm upgrade apply v1.31.2
 sudo apt-mark unhold kubelet kubectl && sudo apt-get install -y kubelet=1.31.2-1.1 kubectl=1.31.2-1.1
 sudo apt-mark hold kubelet kubectl
 sudo systemctl daemon-reload && sudo systemctl restart kubelet
+```
+
+### Lab 3: Troubleshooting a Broken Control Plane (Real Prod Issue)
+**Scenario**: The Kubernetes API server is unresponsive (`kubectl` returns connection refused). This often happens in production if an admin makes a typo in a static pod manifest or if the container runtime crashes.
+**Resolution**:
+```bash
+# 1. SSH into the affected control plane node (CP1)
+ssh cp1
+
+# 2. Since the API server is a static pod managed by kubelet, check kubelet logs
+sudo journalctl -u kubelet -f
+# Look for errors parsing the manifest or starting the container
+
+# 3. Check for crashing API server containers using the CRI (containerd/crictl)
+sudo crictl ps -a | grep kube-apiserver
+sudo crictl logs <container-id>
+
+# 4. Fix the misconfiguration in the static pod manifest
+# Example: Correcting a typo like '--tls-cert-fiel' to '--tls-cert-file'
+sudo vi /etc/kubernetes/manifests/kube-apiserver.yaml
+
+# 5. Kubelet automatically detects the file change and restarts the static pod.
+# Monitor the runtime until the API server container stays running:
+watch 'sudo crictl ps | grep kube-apiserver'
+
+# 6. Verify cluster access is restored
+kubectl get nodes
+```
+
+### Lab 4: Troubleshooting Network Connectivity & NetworkPolicies (Cilium)
+**Scenario**: A frontend pod is failing to communicate with a backend database pod. Both are running in the `prod` namespace, but the connection times out. This is a common production issue when rolling out zero-trust networking.
+**Resolution**:
+```bash
+# 1. Verify the pod IPs and labels
+kubectl get pods -n prod -o wide --show-labels
+# Frontend IP: 10.0.1.15, Backend IP: 10.0.2.30
+
+# 2. Test connectivity manually using a temporary pod (nslookup/curl)
+kubectl exec -it <frontend-pod-name> -n prod -- curl -v http://10.0.2.30:3306
+# Result: Connection Timed Out
+
+# 3. Check for existing NetworkPolicies in the namespace
+kubectl get networkpolicies -n prod
+kubectl describe networkpolicy <policy-name> -n prod
+
+# 4. Analyze the policy constraints
+# Notice that the backend policy only allows ingress from pods with label 'role: web'
+# But the frontend pod has label 'role: frontend'.
+
+# 5. Fix the NetworkPolicy manifest or update the pod label
+# Option A: Update the pod label to match the policy
+kubectl label pod <frontend-pod-name> -n prod role=web --overwrite
+
+# Option B: Edit the NetworkPolicy to allow 'role: frontend'
+kubectl edit networkpolicy <policy-name> -n prod
+
+# 6. Verify connectivity is restored
+kubectl exec -it <frontend-pod-name> -n prod -- curl -v http://10.0.2.30:3306
+# Result: Connection Successful (or valid HTTP response)
 ```
