@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# CNI Installation Manager (Calico / Cilium / Flannel)
+# ==============================================================================
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/common.sh"
+
+check_root
+load_config
+
+CNI_TARGET="${1:-${CNI_PLUGIN:-calico}}"
+
+log_header "Installing CNI Plugin: ${CNI_TARGET}"
+
+case "${CNI_TARGET}" in
+    calico)
+        log_info "Deploying Tigera Calico Operator..."
+        k3s kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.2/manifests/tigera-operator.yaml || true
+        
+        log_info "Applying Calico Custom Resources with CIDR ${CLUSTER_CIDR:-10.42.0.0/16}..."
+        cat <<EOF | k3s kubectl apply -f -
+apiVersion: operator.tigera.io/v1
+kind: Installation
+metadata:
+  name: default
+spec:
+  calicoNetwork:
+    ipPools:
+    - name: default-ipv4-ippool
+      blockSize: 26
+      cidr: ${CLUSTER_CIDR:-10.42.0.0/16}
+      encapsulation: VXLAN
+      natOutgoing: Enabled
+      nodeSelector: all()
+---
+apiVersion: operator.tigera.io/v1
+kind: APIServer
+metadata:
+  name: default
+spec: {}
+EOF
+        log_info "Waiting for Calico node pods in calico-system..."
+        k3s kubectl rollout status daemonset/calico-node -n calico-system --timeout=180s || true
+        log_success "Calico CNI deployed successfully."
+        ;;
+    cilium)
+        log_info "Installing Cilium CNI..."
+        if ! command -v cilium >/dev/null 2>&1; then
+            log_info "Downloading Cilium CLI..."
+            CILIUM_CLI_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/cilium-cli/main/stable.txt)
+            CLI_ARCH="amd64"
+            if [ "$(uname -m)" = "aarch64" ]; then CLI_ARCH="arm64"; fi
+            curl -L --fail --remote-name-all "https://github.com/cilium/cilium-cli/releases/download/${CILIUM_CLI_VERSION}/cilium-linux-${CLI_ARCH}.tar.gz"
+            tar xzf "cilium-linux-${CLI_ARCH}.tar.gz" -C /usr/local/bin
+            rm -f "cilium-linux-${CLI_ARCH}.tar.gz"
+        fi
+        cilium install --set ipam.operator.clusterPoolIPv4PodCIDRList="${CLUSTER_CIDR:-10.42.0.0/16}"
+        cilium status --wait
+        log_success "Cilium CNI deployed successfully."
+        ;;
+    flannel)
+        log_info "Flannel is the default embedded K3s CNI."
+        ;;
+    *)
+        log_error "Unsupported CNI '${CNI_TARGET}'. Choose 'calico', 'cilium', or 'flannel'."
+        ;;
+esac

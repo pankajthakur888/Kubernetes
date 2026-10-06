@@ -1,0 +1,36 @@
+global
+    log /dev/log local0
+    log /dev/log local1 notice
+    chroot /var/lib/haproxy
+    user haproxy
+    group haproxy
+    daemon
+
+defaults
+    log     global
+    mode    tcp
+    option  tcplog
+    option  dontlognull
+    timeout connect 5000ms
+    timeout client  50000ms
+    timeout server  50000ms
+
+frontend k8s-apiserver
+    bind *:6443
+    mode tcp
+    default_backend k8s-controlplane-backend
+
+backend k8s-controlplane-backend
+    mode tcp
+    balance roundrobin
+    option tcp-check
+    server cp1 {{CP1_IP}}:6443 check check-ssl verify none fall 3 rise 2
+    server cp2 {{CP2_IP}}:6443 check check-ssl verify none fall 3 rise 2
+    server cp3 {{CP3_IP}}:6443 check check-ssl verify none fall 3 rise 2
+
+frontend stats
+    bind *:8404
+    mode http
+    stats enable
+    stats uri /
+    stats refresh 10s
