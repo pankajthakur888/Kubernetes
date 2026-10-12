@@ -87,3 +87,51 @@ securityContext:
   runAsUser: 1000
 ```
 2. **Cluster level (Admission Control):** Implement a Pod Security Admission (PSA) standard of `Restricted`, or use a policy engine like OPA Gatekeeper or Kyverno to block any Pod manifest that doesn't explicitly set `runAsNonRoot: true`.
+
+
+---
+
+## 6. Serverless & Event-Driven Autoscaling (Knative & KEDA)
+
+**Q11: Explain the Knative Serving architecture and how Scale-to-Zero actually works under the hood.**
+**A:** Standard Kubernetes HPA cannot scale a Deployment to 0 replicas without dropping incoming traffic. Knative achieves **Scale-to-Zero** through three core components:
+1. **Activator**: When a service has 0 replicas, the Ingress points traffic directly to the Activator. The Activator acts as a temporary buffer: it holds incoming HTTP requests in memory and immediately signals the Autoscaler (KPA) to spin up a pod. Once the pod becomes Ready, the Activator proxies the buffered request to the pod and updates the Ingress routing table to bypass the Activator.
+2. **Queue-Proxy Sidecar**: Injected into every Knative pod alongside the application container. It intercepts all incoming requests, tracks real-time concurrency metrics, enforces `containerConcurrency` limits, and sends metrics to the Autoscaler via websockets.
+3. **Autoscaler (KPA)**: Evaluates metrics reported by the Queue-Proxy. If no requests are received during the stable window (default 60s), the Autoscaler instructs Kubernetes to scale the deployment down to 0 replicas and points the Ingress back to the Activator.
+
+**Q12: Knative vs. KEDA vs. Standard HPA: When should an architect choose which?**
+**A:** 
+- **Standard HPA:** Best for long-running, predictable services where scaling is driven strictly by **CPU or Memory** consumption (e.g., computational microservices, databases) and minimum 1 replica is acceptable.
+- **Knative Serving:** Best for **HTTP request-driven serverless** architectures, public REST APIs, and webhooks where you need:
+  - True scale-to-zero during idle periods.
+  - Native percentage-based traffic splitting (Canary 80/20 or Blue-Green rollouts).
+  - Revision immutability.
+- **KEDA (Kubernetes Event-driven Autoscaling):** Best for **asynchronous event/message processing** where scaling depends on external queue backlogs, Kafka consumer lags, database queries, or Cron schedules.
+- **Combined Pattern:** Modern architectures often use **both**: Knative handles the public-facing HTTP API / webhook ingest layer (scaling 0 <-> N on request concurrency), which publishes jobs to a message queue (RabbitMQ / Kafka). KEDA then scales the backend worker fleet based on queue depth.
+
+**Q13: How does KEDA scale a Deployment from 0 to 1 without violating the Kubernetes HPA constraint?**
+**A:** Standard Kubernetes HPA cannot scale a resource from 0 to 1 because its algorithm calculates `desiredReplicas = ceil[currentReplicas * (currentMetricValue / desiredMetricValue)]`. When `currentReplicas == 0`, multiplying by zero always yields zero.
+KEDA solves this with a **two-phase architecture**:
+1. **Scale 0 → 1 (Activation Phase):** The **KEDA Operator** directly monitors the external event source (e.g., RabbitMQ queue). When the queue backlog > 0, KEDA bypasses the HPA and directly patches the Deployment's `spec.replicas` from 0 to 1.
+2. **Scale 1 ↔ N (Horizontal Scaling Phase):** Once at least 1 pod is running, the **KEDA Metrics API Server** exposes the queue depth to the standard Kubernetes External Metrics API (`external.metrics.k8s.io`). The built-in HPA controller consumes these metrics and handles all scaling between 1 and `maxReplicaCount`.
+3. **Scale 1 → 0 (Deactivation Phase):** When the queue reaches 0 and the cooldown period expires, KEDA scales the Deployment back down to 0 and pauses HPA evaluations.
+
+**Q14: What causes "Cold Starts" in Knative, and what architectural strategies do you use to mitigate them in production?**
+**A:** A cold start is the latency penalty incurred when a request arrives while replicas = 0. The latency is the cumulative time of:
+1. Ingress routing to Activator.
+2. Scheduler placing the pod on a node.
+3. CRI pulling the container image (if not cached).
+4. Container startup and application runtime initialization (JVM, Python interpreter, DB connection pools).
+5. Readiness probe passing.
+
+**Production Mitigation Strategies:**
+1. **Set `minScale: 1` on critical paths:** If an API has strict SLA (< 100ms), set `autoscaling.knative.dev/min-scale: "1"` to keep 1 warm pod while retaining Knative's automated revisions and canary routing.
+2. **Compile to Native Binaries:** For Java workloads, use GraalVM Native Image (Quarkus/Micronaut) to drop boot time from 6 seconds to 30 milliseconds. For Go/Rust, compile statically linked small images (< 15MB).
+3. **Tune `scale-to-zero-pod-retention-period`:** Extend the idle retention window (e.g., 5-10 minutes) so pods stay warm between intermittent requests.
+4. **Use Image Pre-pulling / DaemonSets:** Pre-pull base images on all worker nodes to eliminate image download time.
+
+**Q15: What is the architectural difference between KEDA `ScaledObject` and `ScaledJob`, and what happens if you manually define an HPA alongside a `ScaledObject`?**
+**A:** 
+- **`ScaledObject`:** Targets long-lived workloads (Deployments, StatefulSets). Pods remain running continuously, pulling messages from a queue in an active loop. Best for stream processing, high throughput, and low-latency message consumers.
+- **`ScaledJob`:** Targets ephemeral, run-to-completion workloads (Kubernetes `Job`). KEDA spins up an isolated Job pod for each item or batch in the queue. The pod runs, processes the payload, and terminates. Best for heavy, isolated tasks (video transcoding, batch PDF generation, machine learning training).
+- **The Dual-HPA Conflict Gotcha:** When you define a `ScaledObject`, KEDA automatically creates and owns an HPA object named `keda-hpa-<name>`. If an engineer also commits a manual `HorizontalPodAutoscaler` pointing to the same deployment, **both controllers will fight**: KEDA will try to scale based on queue length while the standard HPA tries to scale based on CPU/RAM, leading to constant replica flapping and unstable production deployments.

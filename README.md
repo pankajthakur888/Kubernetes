@@ -1,6 +1,6 @@
 # Unified Kubernetes & K3s Lab & Production Suite
 
-A modular, enterprise-ready orchestration repository providing automated cluster bootstrap, configuration management, and lifecycle tools for both **Upstream Kubernetes (`kubeadm` + `containerd`)** and **Lightweight Kubernetes (`k3s`)**.
+A modular, enterprise-ready orchestration repository providing automated cluster bootstrap, configuration management, lifecycle tools, and advanced autoscaling for **Upstream Kubernetes (`kubeadm` + `containerd`)**, **Lightweight Kubernetes (`k3s`)**, and **Cloud-Native Serverless (`Knative` & `KEDA`)**.
 
 ---
 
@@ -32,8 +32,19 @@ kubernetes/
 │   ├── scripts/                   # Modular installers (prereqs, server, worker, CNI, MetalLB, Ingress)
 │   ├── manifests/                 # HAProxy and MetalLB templates
 │   ├── tests/
-│   │   └── test_suite.sh          # 34 automated validation tests (All PASS)
+│   │   └── test_suite.sh          # 38 automated validation tests (All PASS)
 │   └── README.md                  # Dedicated K3s documentation
+│
+├── serverless/                    # Cloud-Native Serverless & Event-Driven Autoscaling
+│   ├── README.md                  # Master Knative vs. KEDA architecture comparison
+│   ├── knative/                   # Knative Serving, Eventing, Scale-to-Zero & Kourier
+│   │   ├── README.md              # Deep dive on KPA, Activator, Queue-Proxy, cold starts
+│   │   ├── install-knative.sh     # Automated installer for Knative Serving + Kourier
+│   │   └── manifests/             # 01-hello-service, 02-traffic-split, 03-eventing-ping
+│   └── keda/                      # KEDA (Kubernetes Event-driven Autoscaling)
+│       ├── README.md              # Deep dive on ScaledObject, ScaledJob, 60+ scalers
+│       ├── install-keda.sh        # Automated installer for KEDA Operator & Metrics Server
+│       └── manifests/             # 01-cron-scaler, 02-rabbitmq-queue, 03-redis-batch-job
 │
 ├── monitoring/                    # Kubernetes Observability Manifests
 │   ├── kubernetes-elk/            # Elasticsearch, Logstash, Kibana
@@ -44,6 +55,8 @@ kubernetes/
 │   ├── basic-resource-quota.yaml  # Memory & CPU quotas
 │   └── deploy.yaml                # Sample application deployment
 │
+├── CKA_QA.md                      # Certified Kubernetes Administrator (CKA) practical Q&A
+├── INTERVIEW_QA.md                # Senior/Lead Architect Interview Q&A (including Knative & KEDA)
 └── README.md                      # This Master Guide
 ```
 
@@ -82,6 +95,8 @@ kubernetes/
 | **etcd Cluster** | Dedicated static pods + `etcdctl` | Embedded SQLite (single) or etcd (HA) |
 | **Networking (CNI)** | Cilium default (or Calico) | Cilium default (or Flannel/Calico) |
 | **Storage (CSI)** | Local-Path / Cloud CSI (AWS EBS, GCE PD, Azure Disk) | Local-Path provisioner built-in |
+| **Autoscaling** | Standard HPA (CPU/RAM) | Standard HPA (CPU/RAM) |
+| **Serverless / Events** | Knative & KEDA supported | Knative & KEDA supported |
 | **Best Used For** | Enterprise production, **CKA Exam preparation** | Edge, IoT, local lab, WSL2, rapid CI/CD |
 | **Test Suite** | 31 Automated Tests Passed | 38 Automated Tests Passed |
 
@@ -98,16 +113,31 @@ cd /opt/myproject/kubernetes/k8s
 sudo ./k8s.sh lb 10.10.10.11 10.10.10.12 10.10.10.13
 
 # 2. On Control Plane 1 (Bootstrap cluster):
-sudo ROLE=control-plane      ENVIRONMENT=onprem      CONTROL_PLANE_ENDPOINT=k8s-api.lab.local      NODE_IP=10.10.10.11      CNI=cilium      ./k8s.sh
+sudo ROLE=control-plane \
+     ENVIRONMENT=onprem \
+     CONTROL_PLANE_ENDPOINT=k8s-api.lab.local \
+     NODE_IP=10.10.10.11 \
+     CNI=cilium \
+     ./k8s.sh
 
 # 3. Retrieve join tokens & certificate key:
 sudo ./k8s.sh token
 
 # 4. On Control Plane 2 & 3:
-sudo ROLE=control-plane-join      CONTROL_PLANE_ENDPOINT=k8s-api.lab.local      NODE_IP=10.10.10.12      JOIN_TOKEN="<TOKEN>"      DISCOVERY_TOKEN_CA_CERT_HASH="<HASH>"      CERTIFICATE_KEY="<CERT_KEY>"      ./k8s.sh
+sudo ROLE=control-plane-join \
+     CONTROL_PLANE_ENDPOINT=k8s-api.lab.local \
+     NODE_IP=10.10.10.12 \
+     JOIN_TOKEN="<TOKEN>" \
+     DISCOVERY_TOKEN_CA_CERT_HASH="<HASH>" \
+     CERTIFICATE_KEY="<CERT_KEY>" \
+     ./k8s.sh
 
 # 5. On Worker Nodes:
-sudo ROLE=worker      CONTROL_PLANE_ENDPOINT=k8s-api.lab.local      JOIN_TOKEN="<TOKEN>"      DISCOVERY_TOKEN_CA_CERT_HASH="<HASH>"      ./k8s.sh
+sudo ROLE=worker \
+     CONTROL_PLANE_ENDPOINT=k8s-api.lab.local \
+     JOIN_TOKEN="<TOKEN>" \
+     DISCOVERY_TOKEN_CA_CERT_HASH="<HASH>" \
+     ./k8s.sh
 
 # 6. Check cluster diagnostics:
 sudo ./k8s.sh health-check
@@ -120,17 +150,26 @@ sudo ./k8s.sh health-check
 ```bash
 cd /opt/myproject/kubernetes/k3s
 
-# 1. On Control Plane 1 (Initialize etcd cluster):
-sudo ROLE=server-init      NODE_IP=10.10.10.11      ./k3s.sh
+# 1. On Control Plane 1 (Initialize cluster):
+sudo ROLE=server-init \
+     NODE_IP=$(hostname -I | awk '{print $1}') \
+     ./k3s.sh
 
 # 2. Retrieve join token:
 sudo ./k3s.sh token
 
 # 3. On Control Plane 2 & 3:
-sudo ROLE=server-join      NODE_IP=10.10.10.12      K3S_URL=https://10.10.10.11:6443      K3S_TOKEN="<TOKEN>"      ./k3s.sh
+sudo ROLE=server-join \
+     NODE_IP=10.10.10.12 \
+     K3S_URL=https://10.10.10.11:6443 \
+     K3S_TOKEN="<TOKEN>" \
+     ./k3s.sh
 
 # 4. On Worker Nodes:
-sudo ROLE=worker      K3S_URL=https://10.10.10.11:6443      K3S_TOKEN="<TOKEN>"      ./k3s.sh
+sudo ROLE=worker \
+     K3S_URL=https://10.10.10.11:6443 \
+     K3S_TOKEN="<TOKEN>" \
+     ./k3s.sh
 
 # 5. Check health:
 sudo ./k3s.sh health-check
@@ -138,12 +177,31 @@ sudo ./k3s.sh health-check
 
 ---
 
-## 4. Certified Kubernetes Administrator (CKA) Exam Labs
+## 4. Serverless & Event-Driven Autoscaling (Knative & KEDA)
+
+The `serverless/` suite addresses the limitations of standard Kubernetes HPA by introducing **Scale-to-Zero**, **HTTP Request Concurrency**, and **60+ Event Scalers**:
+
+| Platform | Trigger Metric | Scale-to-Zero | Key Strengths |
+| :--- | :--- | :--- | :--- |
+| **Knative Serving** | HTTP Request Rate & Concurrency | ✅ Yes (0 ↔ N) | Built-in canary traffic splitting (80/20), revision snapshots, automatic Ingress routing, instant cold start activation via Activator. |
+| **KEDA** | 60+ Event Sources (Queues, Kafka, DBs, Cron) | ✅ Yes (0 ↔ N) | Plugs directly into standard HPA via External Metrics API; scales long-running Deployments (`ScaledObject`) or ephemeral batch tasks (`ScaledJob`). |
+
+- **Knative Module**: [serverless/knative/README.md](file:///Ubuntu/opt/myproject/kubernetes/serverless/knative/README.md)
+- **KEDA Module**: [serverless/keda/README.md](file:///Ubuntu/opt/myproject/kubernetes/serverless/keda/README.md)
+- **Architectural Comparison**: [serverless/README.md](file:///Ubuntu/opt/myproject/kubernetes/serverless/README.md)
+
+---
+
+## 5. Certified Kubernetes Administrator (CKA) Exam Labs
 
 ### Lab 1: etcd Snapshot Backup & Restoration
 - **In `k8s/` (Using `etcdctl`)**:
   ```bash
-  ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379     --cacert=/etc/kubernetes/pki/etcd/ca.crt     --cert=/etc/kubernetes/pki/etcd/server.crt     --key=/etc/kubernetes/pki/etcd/server.key     snapshot save /var/lib/etcd-backup.db
+  ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 \
+    --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+    --cert=/etc/kubernetes/pki/etcd/server.crt \
+    --key=/etc/kubernetes/pki/etcd/server.key \
+    snapshot save /var/lib/etcd-backup.db
   ```
 - **In `k3s/` (Using native snapshot tool)**:
   ```bash
@@ -177,27 +235,28 @@ kubectl uncordon <node-name>
 
 ---
 
-
-## 5. CKA Preparation Roadmap
+## 6. CKA Preparation Roadmap
 
 | Phase | Topics | Priority |
 | :---: | :--- | :--- |
-| 1 | Kubernetes Architecture & Core Concepts | ????? |
-| 2 | Pods, Deployments, ReplicaSets | ????? |
-| 3 | Services & Networking | ????? |
-| 4 | ConfigMaps & Secrets | ???? |
-| 5 | Storage, PV, PVC, StorageClass | ????? |
-| 6 | Scheduling, Taints, Tolerations, Affinity | ????? |
-| 7 | RBAC & Security | ????? |
-| 8 | Ingress & Gateway concepts | ???? |
-| 9 | Helm & Application Management | ??? |
-| 10 | Troubleshooting | ????? |
-| 11 | Cluster Maintenance & Upgrades | ????? |
-| 12 | ETCD backup/restore | ????? |
-| 13 | Advanced kubectl | ????? |
-| 14 | Full CKA Mock Exams | ????? |
+| 1 | Kubernetes Architecture & Core Concepts | ★★★★★ |
+| 2 | Pods, Deployments, ReplicaSets | ★★★★★ |
+| 3 | Services & Networking | ★★★★★ |
+| 4 | ConfigMaps & Secrets | ★★★★☆ |
+| 5 | Storage, PV, PVC, StorageClass | ★★★★★ |
+| 6 | Scheduling, Taints, Tolerations, Affinity | ★★★★★ |
+| 7 | RBAC & Security | ★★★★★ |
+| 8 | Ingress & Gateway concepts | ★★★★☆ |
+| 9 | Helm & Application Management | ★★★☆☆ |
+| 10 | Troubleshooting | ★★★★★ |
+| 11 | Cluster Maintenance & Upgrades | ★★★★★ |
+| 12 | ETCD backup/restore | ★★★★★ |
+| 13 | Advanced kubectl | ★★★★★ |
+| 14 | Full CKA Mock Exams | ★★★★★ |
 
-## 6. Automated Verification Test Suites
+---
+
+## 7. Automated Verification Test Suites
 
 Both suites include comprehensive automated testing with mock execution, syntax validation, and flag assembly checks:
 
@@ -205,8 +264,8 @@ Both suites include comprehensive automated testing with mock execution, syntax 
 # Test Upstream Kubernetes suite (31 tests)
 /opt/myproject/kubernetes/k8s/tests/test_suite.sh
 
-# Test K3s suite (34 tests)
+# Test K3s suite (38 tests)
 /opt/myproject/kubernetes/k3s/tests/test_suite.sh
 ```
 
-**Total Test Coverage: 65/65 Tests Passing (100% Pass Rate)**
+**Total Test Coverage: 69/69 Tests Passing (100% Pass Rate)**

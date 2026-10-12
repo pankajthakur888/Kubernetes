@@ -1,0 +1,47 @@
+---
+# Sample workload deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: report-generator
+  namespace: default
+spec:
+  replicas: 0 # KEDA will control this
+  selector:
+    matchLabels:
+      app: report-generator
+  template:
+    metadata:
+      labels:
+        app: report-generator
+    spec:
+      containers:
+        - name: generator
+          image: busybox
+          command: ["sh", "-c", "echo 'Generating scheduled reports...'; sleep 3600"]
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+
+---
+# KEDA ScaledObject: Time-of-day / Scheduled Scaling
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: report-generator-cron-scaler
+  namespace: default
+spec:
+  scaleTargetRef:
+    name: report-generator
+  minReplicaCount: 0 # Scales down to 0 during off-hours to save costs
+  maxReplicaCount: 10
+  cooldownPeriod: 60
+  triggers:
+    - type: cron
+      metadata:
+        timezone: "UTC"
+        # Business hours: Monday to Friday from 08:00 to 18:00 UTC
+        start: "0 8 * * 1-5"
+        end: "0 18 * * 1-5"
+        desiredReplicas: "5"

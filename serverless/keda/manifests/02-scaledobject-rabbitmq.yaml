@@ -1,0 +1,76 @@
+---
+# 1. RabbitMQ Connection Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rabbitmq-credentials
+  namespace: default
+type: Opaque
+stringData:
+  host: "amqp://guest:guest@rabbitmq.default.svc.cluster.local:5672/vhost"
+
+---
+# 2. KEDA TriggerAuthentication: Decouples credentials from the scaler
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: rabbitmq-auth
+  namespace: default
+spec:
+  secretTargetRef:
+    - parameter: host
+      name: rabbitmq-credentials
+      key: host
+
+---
+# 3. Queue Consumer Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-processor
+  namespace: default
+spec:
+  replicas: 0 # KEDA dynamically manages replica count
+  selector:
+    matchLabels:
+      app: order-processor
+  template:
+    metadata:
+      labels:
+        app: order-processor
+    spec:
+      containers:
+        - name: consumer
+          image: python:3.11-slim
+          command: ["python", "-u", "-c", "import time; print('Consuming messages...'); time.sleep(3600)"]
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+---
+# 4. KEDA ScaledObject: Scale-to-Zero and Queue-based Autoscaling
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: order-processor-scaler
+  namespace: default
+spec:
+  scaleTargetRef:
+    name: order-processor
+  minReplicaCount: 0 # True scale-to-zero when queue is empty
+  maxReplicaCount: 20 # Maximum concurrency ceiling
+  pollingInterval: 15 # Poll queue length every 15 seconds
+  cooldownPeriod: 60  # Wait 60s of empty queue before scaling down to 0
+  triggers:
+    - type: rabbitmq
+      metadata:
+        queueName: orders
+        mode: QueueLength
+        value: "10"             # Target 1 pod for every 10 messages in the backlog
+        activationValue: "1"    # Wake up from 0 to 1 as soon as 1 message is queued
+      authenticationRef:
+        name: rabbitmq-auth

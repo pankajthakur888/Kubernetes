@@ -1,0 +1,40 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: video-transcoder-job-scaler
+  namespace: default
+spec:
+  jobTargetRef:
+    parallelism: 1
+    completions: 1
+    activeDeadlineSeconds: 600
+    backoffLimit: 3
+    template:
+      metadata:
+        labels:
+          app: video-transcoder
+      spec:
+        restartPolicy: OnFailure
+        containers:
+          - name: transcoder
+            image: alpine:latest
+            command: ["sh", "-c", "echo 'Starting video encoding task...'; sleep 30; echo 'Encoding completed!'"]
+            resources:
+              requests:
+                cpu: "200m"
+                memory: "256Mi"
+              limits:
+                cpu: "1000m"
+                memory: "1Gi"
+  pollingInterval: 10              # Check for new tasks every 10 seconds
+  successfulJobsHistoryLimit: 5     # Retain logs of last 5 completed jobs
+  failedJobsHistoryLimit: 5         # Retain logs of last 5 failed jobs
+  maxReplicaCount: 15              # Run up to 15 parallel jobs simultaneously
+  scalingStrategy:
+    strategy: "default"
+  triggers:
+    - type: redis
+      metadata:
+        address: "redis.default.svc.cluster.local:6379"
+        listName: "video-transcoding-queue"
+        listLength: "1"            # Spawn 1 job per queued video in Redis list

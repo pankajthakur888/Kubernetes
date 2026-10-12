@@ -1,0 +1,30 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: default
+spec:
+  template:
+    metadata:
+      name: payment-service-v2
+    spec:
+      containers:
+        - image: gcr.io/knative-samples/helloworld-go
+          env:
+            - name: TARGET
+              value: "Payment API v2 (Canary)"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+  traffic:
+    # 80% traffic to stable production revision
+    - revisionName: payment-service-v1
+      percent: 80
+      tag: stable
+    # 20% traffic to canary candidate revision
+    - revisionName: payment-service-v2
+      percent: 20
+      tag: canary
+      # Allows testing canary directly via:
+      # http://canary-payment-service.default.example.com

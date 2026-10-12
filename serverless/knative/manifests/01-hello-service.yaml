@@ -1,0 +1,43 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: hello-serverless
+  namespace: default
+  annotations:
+    # Scale to 0 when idle for 60 seconds
+    autoscaling.knative.dev/scale-to-zero-pod-retention-period: "1m"
+    # Target 5 concurrent requests per container before scaling out
+    autoscaling.knative.dev/target: "5"
+    # Minimum replicas (0 means scale-to-zero enabled)
+    autoscaling.knative.dev/min-scale: "0"
+    # Maximum replicas cap to prevent runaway cloud bills
+    autoscaling.knative.dev/max-scale: "10"
+spec:
+  template:
+    metadata:
+      annotations:
+        # Hard limit on concurrent requests queued per container
+        autoscaling.knative.dev/container-concurrency-target-percentage: "70"
+    spec:
+      containerConcurrency: 10
+      containers:
+        - image: gcr.io/knative-samples/helloworld-go
+          name: user-container
+          env:
+            - name: TARGET
+              value: "Cloud Native Engineer (Knative)"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 1
+            periodSeconds: 3

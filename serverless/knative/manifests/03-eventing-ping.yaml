@@ -1,0 +1,38 @@
+---
+# 1. The Consumer Service (Sink): Wakes up from 0 replicas when an event arrives
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: event-display
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "0"
+    spec:
+      containers:
+        - image: gcr.io/knative-releases/knative.dev/eventing/cmd/event_display
+          name: event-logger
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+
+---
+# 2. The CloudEvent Source: Emits a CloudEvent on a cron schedule
+apiVersion: sources.knative.dev/v1
+kind: PingSource
+metadata:
+  name: test-ping-source
+  namespace: default
+spec:
+  # Trigger every 2 minutes
+  schedule: "*/2 * * * *"
+  contentType: "application/json"
+  data: '{"event": "heartbeat", "message": "Serverless event processed successfully"}'
+  sink:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: event-display

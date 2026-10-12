@@ -39,18 +39,36 @@ fi
 if [[ "${SERVER_ACTIVE}" == "true" ]]; then
     log_info "Verifying Control-Plane API & etcd health..."
     
-    # API readyz check
-    API_STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" https://127.0.0.1:6443/readyz 2>/dev/null || echo "000")
-    if [[ "${API_STATUS}" == "200" ]]; then
+    # API readyz check (authenticated via kubectl or client certs)
+    API_READY="false"
+    if k3s kubectl get --raw=/readyz >/dev/null 2>&1; then
+        API_READY="true"
+    elif [[ -f /var/lib/rancher/k3s/server/tls/client-admin.crt && -f /var/lib/rancher/k3s/server/tls/client-admin.key ]]; then
+        API_STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" \
+            --cert /var/lib/rancher/k3s/server/tls/client-admin.crt \
+            --key /var/lib/rancher/k3s/server/tls/client-admin.key \
+            https://127.0.0.1:6443/readyz 2>/dev/null || echo "000")
+        [[ "${API_STATUS}" == "200" ]] && API_READY="true"
+    fi
+
+    if [[ "${API_READY}" == "true" ]]; then
         echo -e "  [x] API Server Ready (/readyz): ${GREEN}HTTP 200 OK${NC}"
     else
+        API_STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" https://127.0.0.1:6443/readyz 2>/dev/null || echo "000")
         echo -e "  [!] API Server Ready (/readyz): ${RED}HTTP ${API_STATUS}${NC}"
     fi
 
     # etcd snapshots check
     if command -v k3s >/dev/null 2>&1; then
         echo -e "\n${BOLD}etcd Snapshot Status:${NC}"
-        k3s etcd-snapshot list 2>/dev/null || log_warn "Could not retrieve etcd snapshots"
+        ETCD_OUT=$(k3s etcd-snapshot list 2>&1 || true)
+        if echo "${ETCD_OUT}" | grep -q "etcd datastore disabled"; then
+            echo -e "  [INFO] Embedded SQLite datastore active (etcd snapshotting applies to multi-server HA mode)"
+        elif [[ -n "${ETCD_OUT}" ]]; then
+            echo "${ETCD_OUT}"
+        else
+            log_warn "Could not retrieve etcd snapshots"
+        fi
     fi
 
     # Node status check
