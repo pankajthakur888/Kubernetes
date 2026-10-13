@@ -2,6 +2,8 @@
 
 This document contains advanced, scenario-based, and architectural questions typically asked in Senior/Lead Kubernetes Engineer or DevOps interviews.
 
+> For Principal / Architect-level deep dives (Multi-Cluster, GitOps, Zero-Trust, Karpenter, FinOps, SRE Telemetry, and Platform Engineering), see [DEVOPS_ARCHITECT_QA.md](DEVOPS_ARCHITECT_QA.md).
+
 ---
 
 ## 1. Architecture & Core Components

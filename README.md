@@ -56,7 +56,8 @@ kubernetes/
 │   └── deploy.yaml                # Sample application deployment
 │
 ├── BASIC_QA.md                    # 95 Core Kubernetes Fundamentals & CKA Questions & Answers
-├── CKA_QA.md                      # Certified Kubernetes Administrator (CKA) 95 Practical Q&A
+├── CKA_QA.md                      # Certified Kubernetes Administrator (CKA) 95 Practical Q&A + Workload Guide
+├── DEVOPS_ARCHITECT_QA.md         # 30 Deep-Dive DevOps Architect & Principal Platform Engineer Q&A
 ├── INTERVIEW_QA.md                # Senior/Lead Architect Interview Q&A (including Knative & KEDA)
 └── README.md                      # This Master Guide
 ```
