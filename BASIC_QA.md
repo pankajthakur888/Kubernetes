@@ -1053,7 +1053,7 @@ watch crictl ps
 # 4. Verify cluster health:
 kubectl get nodes
 kubectl get pods -A
-```\n
+```
 
 ---
 
