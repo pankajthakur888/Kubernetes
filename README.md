@@ -55,7 +55,8 @@ kubernetes/
 │   ├── basic-resource-quota.yaml  # Memory & CPU quotas
 │   └── deploy.yaml                # Sample application deployment
 │
-├── CKA_QA.md                      # Certified Kubernetes Administrator (CKA) practical Q&A
+├── BASIC_QA.md                    # 95 Core Kubernetes Fundamentals & CKA Questions & Answers
+├── CKA_QA.md                      # Certified Kubernetes Administrator (CKA) 95 Practical Q&A
 ├── INTERVIEW_QA.md                # Senior/Lead Architect Interview Q&A (including Knative & KEDA)
 └── README.md                      # This Master Guide
 ```
