@@ -1,0 +1,57 @@
+---
+# 1. Let's Encrypt Staging (HTTP-01) - Test certificates without hitting strict rate limits
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: admin@example.com
+    privateKeySecretRef:
+      name: letsencrypt-staging-account-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+
+---
+# 2. Let's Encrypt Production (HTTP-01) - Valid trusted browser certificates
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@example.com
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+
+---
+# 3. Let's Encrypt Production (DNS-01) - Supports Wildcard certificates (*.example.com)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-dns01-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@example.com
+    privateKeySecretRef:
+      name: letsencrypt-dns01-account-key
+    solvers:
+      - dns01:
+          cloudflare:
+            email: admin@example.com
+            apiTokenSecretRef:
+              name: cloudflare-api-token-secret
+              key: api-token
+          # Or for AWS Route53:
+          # route53:
+          #   region: us-east-1
+          #   hostedZoneID: Z123456789ABC

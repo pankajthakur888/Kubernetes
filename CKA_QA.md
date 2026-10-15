@@ -1,6 +1,6 @@
-# Certified Kubernetes Administrator (CKA) & Fundamentals: 95 Core Questions & Answers
+# Certified Kubernetes Administrator (CKA) & Fundamentals: 100 Core Questions & Answers
 
-A comprehensive, production-grade guide containing **95 essential Kubernetes questions and answers**. This guide covers core concepts, architecture, CLI commands, YAML manifests, and troubleshooting aligned with the 14 CKA exam domains and real-world DevOps practices.
+A comprehensive, production-grade guide containing **100 essential Kubernetes questions and answers**. This guide covers core concepts, architecture, CLI commands, YAML manifests, and troubleshooting aligned with the 14 CKA exam domains and real-world DevOps practices.
 
 ---
 
@@ -18,7 +18,7 @@ A comprehensive, production-grade guide containing **95 essential Kubernetes que
 11. [Phase 11: Health Checks & Container Probes (Q73 - Q77)](#phase-11-health-checks--container-probes)
 12. [Phase 12: Security, ServiceAccounts & RBAC (Q78 - Q84)](#phase-12-security-serviceaccounts--rbac)
 13. [Phase 13: Cluster Maintenance, Upgrades & Node Drain (Q85 - Q89)](#phase-13-cluster-maintenance-upgrades--node-drain)
-14. [Phase 14: Troubleshooting & etcd Backup/Restore (Q90 - Q95)](#phase-14-troubleshooting--etcd-backuprestore)
+14. [Phase 14: Troubleshooting & etcd Backup/Restore (Q90 - Q100)](#phase-14-troubleshooting--etcd-backuprestore)
 15. [Architecture Guide: How to Decide Which Workload Controller to Use](#architecture-guide-how-to-decide-which-kubernetes-workload-controller-to-use)
 
 ---
@@ -1053,6 +1053,107 @@ watch crictl ps
 # 4. Verify cluster health:
 kubectl get nodes
 kubectl get pods -A
+```
+
+---
+
+### Q96: How do you check the expiration dates of all Kubernetes control plane certificates, and how do you renew them manually using `kubeadm`?
+**A:**
+1. **Check Expiration:**
+   ```bash
+   sudo kubeadm certs check-expiration
+   ```
+   *This inspects `/etc/kubernetes/pki` and administrative kubeconfigs, showing residual days.*
+2. **Renew All Certificates:**
+   ```bash
+   sudo cp -r /etc/kubernetes/pki /etc/kubernetes/pki.backup # Always backup first!
+   sudo kubeadm certs renew all
+   ```
+   *To renew an individual certificate (e.g., API server only):*
+   ```bash
+   sudo kubeadm certs renew apiserver
+   ```
+
+---
+
+### Q97: After renewing control plane certificates with `kubeadm certs renew all`, what critical post-renewal steps are required to ensure the cluster continues working?
+**A:**
+1. **Update User Kubeconfig:** The renewal updates `/etc/kubernetes/admin.conf`, but your local `$HOME/.kube/config` still contains the old certificate. Overwrite it:
+   ```bash
+   sudo cp -f /etc/kubernetes/admin.conf $HOME/.kube/config
+   sudo chown $(id -u):$(id -g) $HOME/.kube/config
+   ```
+2. **Restart Static Pods:** The `kube-apiserver`, `kube-controller-manager`, `kube-scheduler`, and `etcd` hold their TLS certificates **in-memory**. They must be restarted to load the new certificates on disk:
+   ```bash
+   # Move manifests temporarily to trigger Kubelet termination and restart:
+   sudo mv /etc/kubernetes/manifests/*.yaml /tmp/
+   sleep 10
+   sudo mv /tmp/*.yaml /etc/kubernetes/manifests/
+   
+   # Or restart the container runtime:
+   sudo systemctl restart containerd
+   ```
+
+---
+
+### Q98: What is Kubelet client and server certificate auto-rotation, and how do you approve pending Kubelet server CSRs?
+**A:**
+- **Client Certificate (`kubelet-client-current.pem`):** Rotates automatically via the Kubernetes CSR API. When near expiration, Kubelet submits a CSR, and `kube-controller-manager` automatically approves it.
+- **Server Certificate (Port 10250 used by `kubectl exec`/`logs`):** Set `serverTLSBootstrap: true` in `/var/lib/kubelet/config.yaml`.
+- When Kubelet requests a new server certificate, the CSR enters `Pending` state for administrator verification:
+  ```bash
+  # View pending CSRs
+  kubectl get csr
+  
+  # Approve the pending Kubelet server certificate CSR
+  kubectl certificate approve <csr-name>
+  ```
+
+---
+
+### Q99: Disaster Recovery: All control plane certificates have expired and `kubectl` throws `x509: certificate has expired`. How do you recover the dead cluster?
+**A:** Because the API server certificate is expired, `kubectl` cannot authenticate. Recover directly on the control plane node:
+1. **Backup existing PKI:**
+   ```bash
+   sudo cp -r /etc/kubernetes /etc/kubernetes.expired.bak
+   ```
+2. **Force Certificate & Kubeconfig Re-issuance:**
+   ```bash
+   sudo kubeadm certs renew all
+   sudo kubeadm init phase kubeconfig all
+   ```
+3. **Restart Kubelet & Runtime:**
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl restart kubelet
+   sudo systemctl restart containerd
+   ```
+4. **Copy Updated Admin Config:**
+   ```bash
+   sudo cp -f /etc/kubernetes/admin.conf $HOME/.kube/config
+   sudo chown $(id -u):$(id -g) $HOME/.kube/config
+   ```
+5. **Verify Cluster Recovery:**
+   ```bash
+   kubectl get nodes
+   ```
+
+---
+
+### Q100: How do you rotate certificates in K3s using the CLI?
+**A:** K3s automatically renews certificates on restart if they expire within 90 days. To force manual rotation immediately:
+```bash
+# 1. Stop K3s service
+sudo systemctl stop k3s
+
+# 2. Rotate all component certificates on disk
+sudo k3s certificate rotate
+
+# 3. Start K3s service
+sudo systemctl start k3s
+
+# 4. Verify updated expiration
+sudo k3s certificate check
 ```
 
 ---

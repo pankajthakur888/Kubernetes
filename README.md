@@ -55,9 +55,22 @@ kubernetes/
 │   ├── basic-resource-quota.yaml  # Memory & CPU quotas
 │   └── deploy.yaml                # Sample application deployment
 │
-├── BASIC_QA.md                    # 95 Core Kubernetes Fundamentals & CKA Questions & Answers
-├── CKA_QA.md                      # Certified Kubernetes Administrator (CKA) 95 Practical Q&A + Workload Guide
-├── DEVOPS_ARCHITECT_QA.md         # 30 Deep-Dive DevOps Architect & Principal Platform Engineer Q&A
+├── certificates/                  # Kubernetes Certificate Management & Renewal Suite
+│   ├── README.md                  # Comprehensive PKI Architecture, Renewal & cert-manager guide
+│   ├── scripts/
+│   │   ├── check-certs.sh         # Automated cluster-wide expiration auditor (color-coded)
+│   │   ├── renew-kubeadm-certs.sh # Safe automated renewal of control-plane PKI & kubeconfigs
+│   │   └── rotate-k3s-certs.sh    # Automated rotation for K3s component certificates
+│   └── manifests/
+│       ├── install-cert-manager.sh # Automated cert-manager installer
+│       ├── 01-clusterissuer-selfsigned.yaml # Internal CA & SelfSigned Issuer
+│       ├── 02-clusterissuer-letsencrypt.yaml# Let's Encrypt ACME HTTP-01 & DNS-01 (Wildcard)
+│       ├── 03-ingress-tls.yaml     # Production Ingress with automated TLS issuance
+│       └── 04-vault-clusterissuer.yaml      # HashiCorp Vault PKI integration
+│
+├── BASIC_QA.md                    # 100 Core Kubernetes Fundamentals & CKA Questions & Answers
+├── CKA_QA.md                      # Certified Kubernetes Administrator (CKA) 100 Practical Q&A + Workload Guide
+├── DEVOPS_ARCHITECT_QA.md         # 31 Deep-Dive DevOps Architect & Principal Platform Engineer Q&A
 ├── INTERVIEW_QA.md                # Senior/Lead Architect Interview Q&A (including Knative & KEDA)
 └── README.md                      # This Master Guide
 ```
@@ -194,7 +207,34 @@ The `serverless/` suite addresses the limitations of standard Kubernetes HPA by 
 
 ---
 
-## 5. Certified Kubernetes Administrator (CKA) Exam Labs
+## 5. Kubernetes Certificate Management & Renewal
+
+The `certificates/` suite provides operational tools for managing, monitoring, and renewing both **control-plane internal certificates** and **application-layer public SSL/TLS certificates**:
+
+```bash
+# 1. Audit all certificate expiration dates across kubeadm, k3s, and kubeconfigs
+sudo ./certificates/scripts/check-certs.sh
+
+# 2. Safely renew kubeadm control plane certificates with automated backup
+sudo ./certificates/scripts/renew-kubeadm-certs.sh
+
+# 3. Rotate K3s component certificates on disk
+sudo ./certificates/scripts/rotate-k3s-certs.sh
+```
+
+| Area | Scope | Tools & Mechanisms |
+| :--- | :--- | :--- |
+| **Control Plane PKI** | API server, etcd, controller-manager, scheduler | `kubeadm certs check-expiration`, `kubeadm certs renew all`, static pod restarts |
+| **K3s Component TLS** | K3s server & agent internal certificates | `k3s certificate check`, `k3s certificate rotate` |
+| **Kubelet TLS** | Node client & server certificates | Auto-rotated via CSR API (`certificates.k8s.io`), approved via `kubectl certificate approve` |
+| **Ingress & Apps** | Public HTTPS & Internal mTLS | **cert-manager** with ACME HTTP-01 / DNS-01 (Let's Encrypt) and HashiCorp Vault PKI |
+
+- **Complete Operations Guide**: [certificates/README.md](certificates/README.md)
+- **Production Manifests**: [certificates/manifests/](certificates/manifests/)
+
+---
+
+## 6. Certified Kubernetes Administrator (CKA) Exam Labs
 
 ### Lab 1: etcd Snapshot Backup & Restoration
 - **In `k8s/` (Using `etcdctl`)**:
@@ -237,7 +277,7 @@ kubectl uncordon <node-name>
 
 ---
 
-## 6. CKA Preparation Roadmap
+## 7. CKA Preparation Roadmap
 
 | Phase | Topics | Priority |
 | :---: | :--- | :--- |
@@ -258,7 +298,7 @@ kubectl uncordon <node-name>
 
 ---
 
-## 7. Automated Verification Test Suites
+## 8. Automated Verification Test Suites
 
 Both suites include comprehensive automated testing with mock execution, syntax validation, and flag assembly checks:
 

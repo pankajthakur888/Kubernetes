@@ -1,0 +1,20 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: vault-pki-issuer
+spec:
+  vault:
+    # Vault server address
+    server: https://vault.internal.corp:8200
+    # Vault PKI secrets engine path
+    path: pki/sign/internal-services-role
+    # CA bundle to trust Vault's TLS certificate
+    caBundle: LS0tLS1CRUdJTi...
+    auth:
+      # Authenticate via Kubernetes ServiceAccount JWT token
+      kubernetes:
+        mountPath: /v1/auth/kubernetes
+        role: cert-manager-role
+        secretRef:
+          name: cert-manager-vault-token
+          key: token

@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: production-web-ingress
+  namespace: default
+  annotations:
+    # Triggers cert-manager to automatically create Certificate, Order, and TLS Secret
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # Enables HTTP to HTTPS permanent 308 redirect
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Allows larger uploads if needed
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - app.example.com
+      secretName: app-example-tls-secret # Secret created and managed by cert-manager
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web-app-svc
+                port:
+                  number: 80
