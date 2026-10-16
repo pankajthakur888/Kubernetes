@@ -83,6 +83,7 @@ kubernetes/
 │
 ├── BASIC_QA.md                    # 100 Core Kubernetes Fundamentals & CKA Questions & Answers
 ├── CKA_QA.md                      # Certified Kubernetes Administrator (CKA) 100 Practical Q&A + Workload Guide
+├── CLOUD_QA.md                    # 45 In-Depth Multi-Cloud (AWS EKS, GCP GKE, Azure AKS) Questions & Answers
 ├── DEVOPS_ARCHITECT_QA.md         # 31 Deep-Dive DevOps Architect & Principal Platform Engineer Q&A
 ├── INTERVIEW_QA.md                # Senior/Lead Architect Interview Q&A (including Knative & KEDA)
 └── README.md                      # This Master Guide
@@ -263,7 +264,7 @@ The `cloud/` suite provides an end-to-end production architecture, deployment pa
 | **Cloud Secrets Integration**| External Secrets Operator / AWS Secrets | Cloud Secret Manager + Workload Identity | Azure Key Vault Provider for Secrets Store CSI |
 
 - **Master Multi-Cloud Architecture Guide**: [cloud/README.md](cloud/README.md)
-- **Multi-Cloud Q&A Guide (45 Questions & Answers)**: [cloud/CLOUD_QA.md](cloud/CLOUD_QA.md)
+- **Multi-Cloud Q&A Guide (45 Questions & Answers)**: [CLOUD_QA.md](CLOUD_QA.md) / [cloud/CLOUD_QA.md](cloud/CLOUD_QA.md)
 - **AWS EKS Guide & Manifests**: [cloud/aws/README.md](cloud/aws/README.md)
 - **GCP GKE Guide & Manifests**: [cloud/gcp/README.md](cloud/gcp/README.md)
 - **Azure AKS Guide & Manifests**: [cloud/azure/README.md](cloud/azure/README.md)
