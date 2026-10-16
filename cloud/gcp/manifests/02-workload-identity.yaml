@@ -1,0 +1,52 @@
+# GKE Workload Identity Federation ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gke-backend-sa
+  namespace: default
+  annotations:
+    iam.gke.io/gcp-service-account: backend-app-gsa@my-gcp-project.iam.gserviceaccount.com
+---
+# Test Deployment consuming GCP APIs without static keys
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gke-workload-identity-demo
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gke-wi-demo
+  template:
+    metadata:
+      labels:
+        app: gke-wi-demo
+    spec:
+      serviceAccountName: gke-backend-sa
+      nodeSelector:
+        iam.gke.io/gke-metadata-server-enabled: "true"
+      containers:
+      - name: gcp-consumer
+        image: google/cloud-sdk:slim
+        command:
+        - "/bin/bash"
+        - "-c"
+        - |
+          echo "Verifying GCP Workload Identity authentication..."
+          gcloud auth list
+          echo "Querying Cloud Secret Manager securely..."
+          # gcloud secrets versions access latest --secret="database-creds"
+          sleep 3600
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 1000\n

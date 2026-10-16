@@ -1,0 +1,29 @@
+# Azure Files CSI StorageClass (NFS v4.1 for ReadWriteMany)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: azurefile-nfs-premium
+provisioner: file.csi.azure.com
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+mountOptions:
+- nconnect=4
+- noresvport
+- actimeo=30
+parameters:
+  skuName: Premium_LRS
+  protocol: nfs
+---
+# Azure Files ReadWriteMany PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: azure-shared-assets-pvc
+  namespace: default
+spec:
+  accessModes:
+  - ReadWriteMany
+  storageClassName: azurefile-nfs-premium
+  resources:
+    requests:
+      storage: 500Gi\n

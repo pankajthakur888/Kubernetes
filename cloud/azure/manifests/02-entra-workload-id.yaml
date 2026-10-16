@@ -1,0 +1,51 @@
+# Microsoft Entra Workload ID - Federated ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: entra-workload-sa
+  namespace: default
+  annotations:
+    azure.workload.identity/client-id: "11111111-2222-3333-4444-555555555555"
+    azure.workload.identity/tenant-id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+---
+# Deployment consuming Azure Resources via Workload Identity
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: azure-workload-id-demo
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: azure-wi-demo
+  template:
+    metadata:
+      labels:
+        app: azure-wi-demo
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: entra-workload-sa
+      containers:
+      - name: azure-sdk-app
+        image: mcr.microsoft.com/azure-cli:latest
+        command:
+        - "/bin/sh"
+        - "-c"
+        - |
+          echo "Authenticating via Microsoft Entra Workload ID..."
+          az login --federated-token "$(cat $AZURE_FEDERATED_TOKEN_FILE)" \
+                   --service-principal -u $AZURE_CLIENT_ID -t $AZURE_TENANT_ID
+          echo "Querying Azure Key Vault securely..."
+          az keyvault secret show --vault-name prod-vault-01 --name db-password || true
+          sleep 3600
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false\n

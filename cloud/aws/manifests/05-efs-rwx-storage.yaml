@@ -1,0 +1,26 @@
+---
+# 1. AWS EFS StorageClass
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: efs-rwx-sc
+provisioner: efs.csi.aws.com
+parameters:
+  provisioningMode: efs-ap              # EFS Access Point (Dynamic provisioning)
+  fileSystemId: fs-0123456789abcdef0    # Your AWS EFS Filesystem ID
+  directoryPerms: "700"
+
+---
+# 2. Shared Multi-Node PersistentVolumeClaim (ReadWriteMany)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-reports-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteMany                     # Can be mounted by hundreds of pods across all AZs
+  storageClassName: efs-rwx-sc
+  resources:
+    requests:
+      storage: 50Gi\n

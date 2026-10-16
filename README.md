@@ -68,6 +68,19 @@ kubernetes/
 │       ├── 03-ingress-tls.yaml     # Production Ingress with automated TLS issuance
 │       └── 04-vault-clusterissuer.yaml      # HashiCorp Vault PKI integration
 │
+├── cloud/                         # Enterprise Multi-Cloud Kubernetes Architecture (AWS, GCP, Azure)
+│   ├── README.md                  # Master Multi-Cloud Architecture & Cross-Cloud Comparison Guide
+│   ├── CLOUD_QA.md                # 45 In-Depth Multi-Cloud Questions & Answers
+│   ├── aws/                       # Amazon Web Services (EKS) Suite
+│   │   ├── README.md              # EKS Architecture, VPC CNI, IRSA, Karpenter, EBS/EFS CSI
+│   │   └── manifests/             # 5 Production Manifests (ALB, IRSA, Karpenter, gp3, EFS RWX)
+│   ├── gcp/                       # Google Cloud Platform (GKE) Suite
+│   │   ├── README.md              # GKE Autopilot vs Standard, Datapath v2, Workload Identity, Gateway API
+│   │   └── manifests/             # 5 Production Manifests (Gateway, Workload Identity, Regional PD, Filestore, Config Connector)
+│   └── azure/                     # Microsoft Azure (AKS) Suite
+│       ├── README.md              # AKS Architecture, Azure CNI Cilium, AGIC, Entra ID, Key Vault CSI
+│       └── manifests/             # 5 Production Manifests (AGIC, Entra ID, Premium ZRS, Azure Files NFS, Key Vault)
+│
 ├── BASIC_QA.md                    # 100 Core Kubernetes Fundamentals & CKA Questions & Answers
 ├── CKA_QA.md                      # Certified Kubernetes Administrator (CKA) 100 Practical Q&A + Workload Guide
 ├── DEVOPS_ARCHITECT_QA.md         # 31 Deep-Dive DevOps Architect & Principal Platform Engineer Q&A
@@ -234,7 +247,30 @@ sudo ./certificates/scripts/rotate-k3s-certs.sh
 
 ---
 
-## 6. Certified Kubernetes Administrator (CKA) Exam Labs
+## 6. Enterprise Multi-Cloud Kubernetes Suite (AWS, GCP, Azure)
+
+The `cloud/` suite provides an end-to-end production architecture, deployment patterns, and validated manifests across the Big 3 public cloud managed Kubernetes services:
+
+| Technical Dimension | AWS EKS (`cloud/aws/`) | GCP GKE (`cloud/gcp/`) | Azure AKS (`cloud/azure/`) |
+| :--- | :--- | :--- | :--- |
+| **Control Plane SLA** | 99.95% ($0.10/hr/cluster) | 99.95% (Autopilot free mgmt fee; Standard $0.10/hr) | 99.95% (Standard/Premium SLA; Free tier available) |
+| **Primary CNI Engine** | AWS VPC CNI (Prefix Delegation) | GKE Datapath v2 (**Cilium eBPF**) | Azure CNI Overlay (**Powered by Cilium**) |
+| **Pod IAM Authentication** | EKS Pod Identity / IRSA (OIDC) | Workload Identity Federation | Microsoft Entra Workload ID |
+| **Ingress & L7 Gateway** | AWS Load Balancer Controller (ALB) | GKE Gateway API (Global Anycast) | Application Gateway Ingress Controller (AGIC) |
+| **Autoscaling Engine** | **Karpenter** (Group-less, fast bin-pack) | Cluster Autoscaler + Node Auto-Provisioning | Karpenter on AKS / Node Auto-Provisioning |
+| **Persistent Block Storage** | EBS CSI (`gp3`, `io2 Block Express`) | GCE Persistent Disk (Regional Balanced PD) | Azure Disk CSI (Premium SSD v2, Ultra Disk) |
+| **Shared File Storage (RWX)**| EFS CSI (NFS v4.1) / FSx for Lustre | Filestore CSI / Cloud Storage FUSE | Azure Files CSI (NFS v4.1 / SMB) |
+| **Cloud Secrets Integration**| External Secrets Operator / AWS Secrets | Cloud Secret Manager + Workload Identity | Azure Key Vault Provider for Secrets Store CSI |
+
+- **Master Multi-Cloud Architecture Guide**: [cloud/README.md](cloud/README.md)
+- **Multi-Cloud Q&A Guide (45 Questions & Answers)**: [cloud/CLOUD_QA.md](cloud/CLOUD_QA.md)
+- **AWS EKS Guide & Manifests**: [cloud/aws/README.md](cloud/aws/README.md)
+- **GCP GKE Guide & Manifests**: [cloud/gcp/README.md](cloud/gcp/README.md)
+- **Azure AKS Guide & Manifests**: [cloud/azure/README.md](cloud/azure/README.md)
+
+---
+
+## 7. Certified Kubernetes Administrator (CKA) Exam Labs
 
 ### Lab 1: etcd Snapshot Backup & Restoration
 - **In `k8s/` (Using `etcdctl`)**:
@@ -277,7 +313,7 @@ kubectl uncordon <node-name>
 
 ---
 
-## 7. CKA Preparation Roadmap
+## 8. CKA Preparation Roadmap
 
 | Phase | Topics | Priority |
 | :---: | :--- | :--- |
@@ -298,7 +334,7 @@ kubectl uncordon <node-name>
 
 ---
 
-## 8. Automated Verification Test Suites
+## 9. Automated Verification Test Suites
 
 Both suites include comprehensive automated testing with mock execution, syntax validation, and flag assembly checks:
 

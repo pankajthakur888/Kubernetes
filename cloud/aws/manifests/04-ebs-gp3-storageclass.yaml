@@ -1,0 +1,15 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ebs-gp3-sc
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer # Ensures PV is created in the same AZ as the scheduled pod
+allowVolumeExpansion: true              # Allows resizing PVC without downtime
+parameters:
+  type: gp3
+  iops: "3000"                          # Baseline IOPS
+  throughput: "125"                     # Baseline throughput in MB/s
+  encrypted: "true"                     # Enforces AWS KMS encryption
+  kmsKeyId: "arn:aws:kms:us-east-1:123456789012:key/my-ebs-key"\n

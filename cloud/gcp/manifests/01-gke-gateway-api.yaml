@@ -1,0 +1,71 @@
+# GKE Gateway API - Global External Application Load Balancer
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gke-external-gateway
+  namespace: default
+  annotations:
+    networking.gke.io/certmap: production-wildcard-certmap
+spec:
+  gatewayClassName: gke-l7-global-external-managed
+  listeners:
+  - name: https
+    protocol: HTTPS
+    port: 443
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: http
+    protocol: HTTP
+    port: 80
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+# HTTP to HTTPS Redirect & Path-Based Routing
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: gke-app-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: gke-external-gateway
+  hostnames:
+  - "api.production.internal"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1
+    backendRefs:
+    - name: api-service
+      port: 8080
+      weight: 100
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /healthz
+    backendRefs:
+    - name: health-service
+      port: 8080
+---
+# Backend Policy for Cloud Armor & Session Affinity
+apiVersion: networking.gke.io/v1
+kind: GCPBackendPolicy
+metadata:
+  name: api-backend-policy
+  namespace: default
+spec:
+  default:
+    securityPolicy: enterprise-cloud-armor-waf
+    timeoutSec: 30
+    connectionDraining:
+      drainingTimeoutSec: 60
+    sessionAffinity:
+      type: GENERATED_COOKIE
+      cookieTtlSec: 1800
+  targetRef:
+    group: ""
+    kind: Service
+    name: api-service\n

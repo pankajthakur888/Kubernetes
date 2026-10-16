@@ -1,0 +1,31 @@
+# GKE Regional Persistent Disk StorageClass (HA across 2 zones)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: regional-pd-balanced
+provisioner: pd.csi.storage.gke.io
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+parameters:
+  type: pd-balanced
+  replication-type: regional-pd
+allowedTopologies:
+- matchLabelExpressions:
+  - key: topology.gke.io/zone
+    values:
+    - us-central1-a
+    - us-central1-b
+---
+# PVC Requesting 100Gi Regional Balanced Disk
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-regional-data-pvc
+  namespace: default
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: regional-pd-balanced
+  resources:
+    requests:
+      storage: 100Gi\n

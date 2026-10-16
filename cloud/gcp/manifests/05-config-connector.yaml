@@ -1,0 +1,45 @@
+# Google Cloud Config Connector (KRM) - Cloud SQL Instance
+apiVersion: sql.cnrm.cloud.google.com/v1beta1
+kind: SQLInstance
+metadata:
+  name: production-postgres-cluster
+  namespace: default
+  annotations:
+    cnrm.cloud.google.com/project-id: my-gcp-project
+spec:
+  databaseVersion: POSTGRES_15
+  region: us-central1
+  settings:
+    tier: db-custom-4-16384
+    availabilityType: REGIONAL
+    diskSize: 100
+    diskType: PD_SSD
+    diskAutoresize: true
+    backupConfiguration:
+      enabled: true
+      startTime: "02:00"
+      pointInTimeRecoveryEnabled: true
+    ipConfiguration:
+      ipv4Enabled: false
+      privateNetworkRef:
+        external: projects/my-gcp-project/global/networks/default
+---
+# Config Connector - Cloud Storage Bucket for ML Backups
+apiVersion: storage.cnrm.cloud.google.com/v1beta1
+kind: StorageBucket
+metadata:
+  name: prod-model-artifacts-backup
+  namespace: default
+  annotations:
+    cnrm.cloud.google.com/project-id: my-gcp-project
+spec:
+  location: US
+  storageClass: STANDARD
+  uniformBucketLevelAccess: true
+  versioning:
+    enabled: true
+  lifecycleRule:
+  - action:
+      type: Delete
+    condition:
+      age: 90\n

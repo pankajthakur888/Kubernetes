@@ -1,0 +1,25 @@
+# GKE Filestore Enterprise NFS StorageClass (ReadWriteMany)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: filestore-enterprise-sc
+provisioner: filestore.csi.storage.gke.io
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+parameters:
+  tier: enterprise
+  network: default
+---
+# Dynamic RWX PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: filestore-shared-pvc
+  namespace: default
+spec:
+  accessModes:
+  - ReadWriteMany
+  storageClassName: filestore-enterprise-sc
+  resources:
+    requests:
+      storage: 1Ti\n

@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ecommerce-alb-ingress
+  namespace: default
+  annotations:
+    # AWS Load Balancer Controller provisions an Application Load Balancer (ALB)
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    # Direct routing to Pod VPC IP (bypasses NodePort hops)
+    alb.ingress.kubernetes.io/target-type: ip
+    # Amazon Certificate Manager (ACM) SSL Certificate
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:123456789012:certificate/12345678-1234-1234-1234-123456789012
+    # Redirect all HTTP (port 80) traffic to HTTPS (port 443)
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    # Health check path on application pods
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+spec:
+  rules:
+    - host: api.mycompany.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: order-service
+                port:
+                  number: 80\n

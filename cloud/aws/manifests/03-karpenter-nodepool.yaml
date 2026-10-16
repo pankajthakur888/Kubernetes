@@ -1,0 +1,54 @@
+---
+# 1. Karpenter v1 NodePool: Defines compute capacity, disruption, and limits
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: general-compute-nodepool
+spec:
+  template:
+    spec:
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: default-ec2-nodeclass
+      requirements:
+        # Prefer Spot instances for cost, fallback to On-Demand
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot", "on-demand"]
+        # Diversify across modern general purpose instance families
+        - key: karpenter.k8s.aws/instance-family
+          operator: In
+          values: ["c6i", "c6a", "m6i", "m6a", "r6i"]
+        # Support both x86_64 and Graviton ARM64
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64", "arm64"]
+  # Limits the maximum total compute Karpenter can provision
+  limits:
+    cpu: "1000"
+    memory: 2000Gi
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 30s
+
+---
+# 2. Karpenter EC2NodeClass: AWS-specific configuration (Subnets, SGs, AMI)
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: default-ec2-nodeclass
+spec:
+  amiFamily: AL2023 # Amazon Linux 2023
+  role: "KarpenterNodeRole-my-cluster"
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "my-cluster"
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "my-cluster"
+  metadataOptions:
+    httpEndpoint: enabled
+    httpProtocolIPv6: disabled
+    httpPutResponseHopLimit: 1 # Enforces IMDSv2 security
+    httpTokens: required\n

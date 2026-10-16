@@ -1,0 +1,28 @@
+# Azure Application Gateway Ingress Controller (AGIC) Manifest
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: azure-appgw-ingress
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: azure/application-gateway
+    appgw.ingress.kubernetes.io/ssl-redirect: "true"
+    appgw.ingress.kubernetes.io/backend-path-prefix: "/"
+    appgw.ingress.kubernetes.io/cookie-based-affinity: "true"
+    appgw.ingress.kubernetes.io/waf-policy-for-path: "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/prod-rg/providers/Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies/prod-waf-policy"
+spec:
+  tls:
+  - hosts:
+    - portal.enterprise.azure.com
+    secretName: portal-tls-cert
+  rules:
+  - host: portal.enterprise.azure.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: enterprise-portal-service
+            port:
+              number: 80\n
