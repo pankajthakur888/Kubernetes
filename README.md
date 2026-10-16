@@ -86,6 +86,7 @@ kubernetes/
 ├── CLOUD_QA.md                    # 45 In-Depth Multi-Cloud (AWS EKS, GCP GKE, Azure AKS) Questions & Answers
 ├── DEVOPS_ARCHITECT_QA.md         # 31 Deep-Dive DevOps Architect & Principal Platform Engineer Q&A
 ├── INTERVIEW_QA.md                # Senior/Lead Architect Interview Q&A (including Knative & KEDA)
+├── LINUX_DEVOPS_QA.md             # 80 Practical Day-to-Day Linux Operations & Troubleshooting Q&A
 └── README.md                      # This Master Guide
 ```
 
